@@ -2,7 +2,9 @@ import time
 import logging
 import os
 from dotenv import load_dotenv
-from adapters.greenhouse import fetch_jobs
+from adapters.greenhouse import fetch_jobs as greenhouse_fetch
+from adapters.lever import fetch_jobs as lever_fetch
+from adapters.ashby import fetch_jobs as ashby_fetch
 from redis_client import is_new_job
 from kafka_client import publish_job
 
@@ -12,16 +14,26 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 
 POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", 60))
 
+ADAPTERS = {
+    "greenhouse": greenhouse_fetch,
+    "lever": lever_fetch,
+    "ashby": ashby_fetch,
+}
+
 COMPANIES = [
     {"slug": "stripe", "platform": "greenhouse"},
     {"slug": "airbnb", "platform": "greenhouse"},
     {"slug": "reddit", "platform": "greenhouse"},
+    {"slug": "notion", "platform": "ashby"},
+    {"slug": "ramp", "platform": "ashby"},
 ]
 
 def scrape_all():
     for company in COMPANIES:
         slug = company["slug"]
-        logging.info(f"Scraping {slug}...")
+        platform = company["platform"]
+        fetch_jobs = ADAPTERS[platform]
+        logging.info(f"Scraping {slug} ({platform})...")
         try:
             jobs = fetch_jobs(slug)
             new_count = 0
