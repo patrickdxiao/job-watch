@@ -32,10 +32,11 @@ services:
       POLL_INTERVAL_SECONDS: 60
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://3.150.197.180:8080
     ports:
       - "3000:3000"
     depends_on:
       - api-service
-    environment:
-      NEXT_PUBLIC_API_URL: http://3.150.197.180:8080
