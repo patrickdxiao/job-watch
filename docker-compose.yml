@@ -14,9 +14,53 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"
+      - "29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  api-service:
+    build: ./api-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      - kafka
+      - redis
+
+  notification-service:
+    build: ./notification-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      - kafka
+      - api-service
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      API_BASE_URL: http://api-service:8080
+
+  scraper-service:
+    build: ./scraper-service
+    depends_on:
+      - kafka
+      - redis
+      - api-service
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      API_BASE_URL: http://api-service:8080
+      POLL_INTERVAL_SECONDS: 60
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-service
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
