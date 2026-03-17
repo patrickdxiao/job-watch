@@ -7,7 +7,6 @@ from adapters.greenhouse import fetch_jobs as greenhouse_fetch
 from adapters.lever import fetch_jobs as lever_fetch
 from adapters.ashby import fetch_jobs as ashby_fetch
 from redis_client import is_new_job
-from kafka_client import publish_job
 
 load_dotenv()
 
@@ -15,6 +14,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 
 POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", 60))
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8080")
+NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "http://localhost:8081")
 
 ADAPTERS = {
     "greenhouse": greenhouse_fetch,
@@ -49,6 +49,16 @@ def ingest_job(job: dict):
     except Exception as e:
         logging.error(f"Failed to ingest job {job['id']}: {e}")
 
+def notify_new_job(company_slug: str):
+    try:
+        requests.post(
+            f"{NOTIFICATION_SERVICE_URL}/internal/notify",
+            json={"companySlug": company_slug},
+            timeout=5
+        )
+    except Exception as e:
+        logging.error(f"Failed to notify for {company_slug}: {e}")
+
 def scrape_all():
     for company in COMPANIES:
         slug = company["slug"]
@@ -60,8 +70,8 @@ def scrape_all():
             new_count = 0
             for job in jobs:
                 if is_new_job(job["id"]):
-                    publish_job(job)
                     ingest_job(job)
+                    notify_new_job(slug)
                     new_count += 1
             logging.info(f"{slug}: {new_count} new jobs published out of {len(jobs)} total")
         except Exception as e:
