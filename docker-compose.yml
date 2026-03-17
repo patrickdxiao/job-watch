@@ -38,4 +38,4 @@ services:
     depends_on:
       - api-service
     environment:
-      NEXT_PUBLIC_API_URL: http://18.189.44.66:8080
+      NEXT_PUBLIC_API_URL: http://3.150.197.180:8080
