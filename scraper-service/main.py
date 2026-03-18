@@ -22,13 +22,14 @@ ADAPTERS = {
     "ashby": ashby_fetch,
 }
 
-COMPANIES = [
-    {"slug": "stripe", "platform": "greenhouse"},
-    {"slug": "airbnb", "platform": "greenhouse"},
-    {"slug": "reddit", "platform": "greenhouse"},
-    {"slug": "notion", "platform": "ashby"},
-    {"slug": "ramp", "platform": "ashby"},
-]
+def fetch_companies():
+    try:
+        response = requests.get(f"{API_BASE_URL}/internal/companies", timeout=5)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        logging.error(f"Failed to fetch companies: {e}")
+        return []
 
 def ingest_job(job: dict):
     try:
@@ -60,7 +61,7 @@ def notify_new_job(company_slug: str):
         logging.error(f"Failed to notify for {company_slug}: {e}")
 
 def scrape_all():
-    for company in COMPANIES:
+    for company in fetch_companies():
         slug = company["slug"]
         platform = company["platform"]
         fetch_jobs = ADAPTERS[platform]
