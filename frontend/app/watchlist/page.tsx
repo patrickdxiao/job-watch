@@ -31,7 +31,6 @@ function CompanyRow({
     <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
       <div>
         <p className="text-sm font-medium text-gray-900">{company.name}</p>
-        <p className="text-xs text-gray-400 capitalize">{company.platform}</p>
       </div>
       <button
         onClick={onAction}
@@ -181,7 +180,6 @@ export default function WatchlistPage() {
                   >
                     <div>
                       <p className="text-sm font-medium text-gray-900">{company.name}</p>
-                      <p className="text-xs text-gray-400 capitalize">{company.platform}</p>
                     </div>
                     <span className="text-xs text-gray-400 font-medium px-3 py-1">
                       Added
