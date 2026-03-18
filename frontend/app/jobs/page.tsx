@@ -10,20 +10,19 @@ function JobCard({ job }: { job: Job }) {
     <div className="bg-white border border-gray-200 rounded-xl px-5 py-4 hover:border-gray-300 transition-colors">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="font-semibold text-gray-900 leading-snug truncate">{job.title}</h2>
-          <p className="text-sm text-gray-500 mt-0.5">{job.company.name}</p>
+          <a
+            href={job.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-gray-900 hover:text-blue-600 leading-snug line-clamp-2 transition-colors"
+          >
+            {job.title}
+          </a>
           {job.location && (
             <p className="text-xs text-gray-400 mt-1 truncate">{job.location}</p>
           )}
         </div>
-        <a
-          href={job.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 text-sm text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap"
-        >
-          View posting →
-        </a>
+        <p className="shrink-0 text-sm text-gray-500 whitespace-nowrap">{job.company.name}</p>
       </div>
     </div>
   );
@@ -41,6 +40,15 @@ export default function JobsPage() {
     if (!token) {
       router.replace("/");
       return;
+    }
+
+    // Restore notification state from browser permission + localStorage
+    if ("Notification" in window) {
+      if (Notification.permission === "granted" && localStorage.getItem("notifs") === "on") {
+        setNotifStatus("granted");
+      } else if (Notification.permission === "denied") {
+        setNotifStatus("denied");
+      }
     }
 
     fetchJobs()
@@ -81,11 +89,26 @@ export default function JobsPage() {
         applicationServerKey: "BIp3kUetAw4oPNGzTPGE3Cm-q706uOKf23Kvf-ZV8n_47pbHKu9VXjOMr4O0n1IGZkIolJG6HczKBLqWqVA6rqc",
       });
       await subscribeToPush(sub.toJSON() as PushSubscriptionJSON);
+      localStorage.setItem("notifs", "on");
       setNotifStatus("granted");
     } catch (err) {
       console.error(err);
       setNotifStatus("idle");
     }
+  }
+
+  async function handleDisableNotifications() {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration("/sw.js");
+      if (reg) {
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) await sub.unsubscribe();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    localStorage.removeItem("notifs");
+    setNotifStatus("idle");
   }
 
   return (
@@ -102,7 +125,12 @@ export default function JobsPage() {
               Manage Watchlist
             </Link>
             {notifStatus === "granted" ? (
-              <span className="text-sm text-green-600 font-medium">Notifications on</span>
+              <button
+                onClick={handleDisableNotifications}
+                className="text-sm text-green-600 hover:text-red-500 font-medium transition-colors"
+              >
+                Notifications on
+              </button>
             ) : (
               <button
                 onClick={handleEnableNotifications}
