@@ -1,8 +1,18 @@
-self.addEventListener("push", () => {
-  self.registration.showNotification("JobWatch", {
-    body: "A new job was posted at one of your watchlisted companies.",
-    icon: "/icon.png",
-  });
+self.addEventListener("push", (event) => {
+  let title = "JobWatch";
+  let body = "A new job was posted.";
+  let icon = "/icon.png";
+
+  try {
+    const data = event.data.json();
+    title = data.title || title;
+    body = data.body || body;
+    icon = data.icon || icon;
+  } catch (_) {}
+
+  event.waitUntil(
+    self.registration.showNotification(title, { body, icon })
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {
