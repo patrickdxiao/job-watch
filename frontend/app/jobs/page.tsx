@@ -47,9 +47,9 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "granted" | "denied">("idle");
-  const [category, setCategory] = useState("");
-  const [seniority, setSeniority] = useState("");
-  const [usOnly, setUsOnly] = useState(false);
+  const [category, setCategory] = useState(() => localStorage.getItem("filter_category") ?? "");
+  const [seniority, setSeniority] = useState(() => localStorage.getItem("filter_seniority") ?? "");
+  const [usOnly, setUsOnly] = useState(() => localStorage.getItem("filter_usOnly") === "true");
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -86,6 +86,12 @@ export default function JobsPage() {
       })
       .finally(() => setLoading(false));
   }, [router, category, seniority, usOnly]);
+
+  useEffect(() => {
+    localStorage.setItem("filter_category", category);
+    localStorage.setItem("filter_seniority", seniority);
+    localStorage.setItem("filter_usOnly", String(usOnly));
+  }, [category, seniority, usOnly]);
 
   function handleLogout() {
     localStorage.removeItem("token");
