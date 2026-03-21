@@ -56,7 +56,7 @@ public class CompanyDiscoveryService {
             c.setName(capitalize(slug));
             c.setPlatform("greenhouse");
             c.setPlatformId(slug);
-            c.setLogoUrl("https://logo.clearbit.com/" + slug + ".com");
+            c.setLogoUrl("https://www.google.com/s2/favicons?domain=" + slug + ".com&sz=64");
             return Optional.of(c);
         } catch (Exception e) {
             return Optional.empty();
@@ -72,7 +72,7 @@ public class CompanyDiscoveryService {
             c.setName(capitalize(slug));
             c.setPlatform("lever");
             c.setPlatformId(slug);
-            c.setLogoUrl("https://logo.clearbit.com/" + slug + ".com");
+            c.setLogoUrl("https://www.google.com/s2/favicons?domain=" + slug + ".com&sz=64");
             return Optional.of(c);
         } catch (Exception e) {
             return Optional.empty();
@@ -88,7 +88,7 @@ public class CompanyDiscoveryService {
             c.setName(capitalize(slug));
             c.setPlatform("ashby");
             c.setPlatformId(slug);
-            c.setLogoUrl("https://logo.clearbit.com/" + slug + ".com");
+            c.setLogoUrl("https://www.google.com/s2/favicons?domain=" + slug + ".com&sz=64");
             return Optional.of(c);
         } catch (Exception e) {
             return Optional.empty();

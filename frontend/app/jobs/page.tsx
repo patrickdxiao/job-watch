@@ -25,16 +25,28 @@ function JobCard({ job }: { job: Job }) {
       rel="noopener noreferrer"
       className="block bg-white border border-gray-200 rounded-xl px-5 py-4 hover:border-gray-300 hover:shadow-sm transition-all"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-semibold text-gray-900 leading-snug line-clamp-2">{job.title}</p>
-          {job.location && (
-            <p className="text-xs text-gray-400 mt-1 truncate">{job.location}</p>
+      <div className="flex items-center gap-3">
+        <div className="shrink-0 w-8 h-8 flex items-center justify-center">
+          {job.company.logoUrl ? (
+            <img
+              src={job.company.logoUrl}
+              alt={job.company.name}
+              className="w-8 h-8 rounded object-contain"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+          ) : (
+            <div className="w-8 h-8 rounded bg-gray-100" />
           )}
         </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-gray-900 leading-snug line-clamp-2">{job.title}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{job.company.name}</p>
+        </div>
         <div className="shrink-0 text-right">
-          <p className="text-sm text-gray-500 whitespace-nowrap">{job.company.name}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{timeAgo(job.createdAt)}</p>
+          <p className="text-xs text-gray-400">{timeAgo(job.updatedAt || job.createdAt)}</p>
+          {job.location && (
+            <p className="text-xs text-gray-400 mt-0.5 text-right">{job.location}</p>
+          )}
         </div>
       </div>
     </a>
@@ -47,9 +59,10 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "granted" | "denied">("idle");
-  const [category, setCategory] = useState(() => localStorage.getItem("filter_category") ?? "");
-  const [seniority, setSeniority] = useState(() => localStorage.getItem("filter_seniority") ?? "");
-  const [usOnly, setUsOnly] = useState(() => localStorage.getItem("filter_usOnly") === "true");
+  const [category, setCategory] = useState(() => typeof window !== "undefined" ? localStorage.getItem("filter_category") ?? "" : "");
+  const [seniority, setSeniority] = useState(() => typeof window !== "undefined" ? localStorage.getItem("filter_seniority") ?? "" : "");
+  const [usOnly, setUsOnly] = useState(() => typeof window !== "undefined" ? localStorage.getItem("filter_usOnly") === "true" : false);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -73,6 +86,7 @@ export default function JobsPage() {
     if (!token) return;
     setLoading(true);
     setError("");
+    setShowAll(false);
     fetchJobs(category || undefined, seniority || undefined, usOnly || undefined)
       .then(setJobs)
       .catch((err: unknown) => {
@@ -251,9 +265,17 @@ export default function JobsPage() {
             <p className="text-sm text-gray-500 mb-4">
               {jobs.length} {jobs.length === 1 ? "job" : "jobs"} from your watchlist
             </p>
-            {jobs.map((job) => (
+            {(showAll ? jobs : jobs.slice(0, 10)).map((job) => (
               <JobCard key={job.id} job={job} />
             ))}
+            {jobs.length > 10 && (
+              <button
+                onClick={() => setShowAll(!showAll)}
+                className="w-full text-sm text-gray-500 hover:text-gray-700 py-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors"
+              >
+                {showAll ? "Show less" : `See ${jobs.length - 10} more`}
+              </button>
+            )}
           </div>
         )}
       </div>

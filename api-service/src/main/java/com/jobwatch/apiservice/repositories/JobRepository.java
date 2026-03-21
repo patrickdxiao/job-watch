@@ -14,7 +14,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
 
     @Query("SELECT j FROM Job j WHERE j.company IN " +
            "(SELECT w.company FROM Watchlist w WHERE w.user = :user) " +
-           "ORDER BY j.createdAt DESC")
+           "ORDER BY j.updatedAt DESC")
     List<Job> findJobsForWatchlist(@Param("user") User user);
 
     @Query("SELECT j FROM Job j WHERE j.company IN " +
@@ -38,7 +38,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
                "LOWER(j.location) LIKE '%austin%' OR " +
                "LOWER(j.location) LIKE '%chicago%' OR " +
                "LOWER(j.location) LIKE '%boston%')) " +
-           "ORDER BY j.createdAt DESC")
+           "ORDER BY j.updatedAt DESC")
     List<Job> findJobsForWatchlistFiltered(@Param("user") User user,
                                            @Param("category") String category,
                                            @Param("seniority") String seniority,
