@@ -66,39 +66,70 @@ function WatchlistCard({
   entry,
   onRemove,
   removing,
+  muted,
+  onToggleMute,
 }: {
   entry: WatchlistEntry;
   onRemove: () => void;
   removing: boolean;
+  muted: boolean;
+  onToggleMute: () => void;
 }) {
-  const [hovered, setHovered] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+
+  function handleContextMenu(e: React.MouseEvent) {
+    setMenu({ x: e.clientX, y: e.clientY });
+  }
+
+  useEffect(() => {
+    if (!menu) return;
+    function close() { setMenu(null); }
+    const timer = setTimeout(() => window.addEventListener("click", close), 0);
+    return () => { clearTimeout(timer); window.removeEventListener("click", close); };
+  }, [menu]);
+
   return (
-    <div
-      className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 relative group"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      {entry.company.logoUrl ? (
-        <img
-          src={entry.company.logoUrl}
-          alt={entry.company.name}
-          className="w-6 h-6 rounded object-contain shrink-0"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-        />
-      ) : (
-        <div className="w-6 h-6 rounded bg-gray-100 shrink-0" />
-      )}
-      <p className="text-sm text-gray-800 flex-1 truncate">{entry.company.name}</p>
-      {hovered && (
-        <button
-          onClick={onRemove}
-          disabled={removing}
-          className="text-gray-300 hover:text-red-400 transition-colors disabled:opacity-50 text-xs"
+    <>
+      <div
+        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer select-none"
+        onClick={handleContextMenu}
+      >
+        {entry.company.logoUrl ? (
+          <img
+            src={entry.company.logoUrl}
+            alt={entry.company.name}
+            className={`w-6 h-6 rounded object-contain shrink-0 ${muted ? "opacity-40" : ""}`}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+        ) : (
+          <div className="w-6 h-6 rounded bg-gray-100 shrink-0" />
+        )}
+        <p className={`text-sm flex-1 truncate ${muted ? "text-gray-400" : "text-gray-800"}`}>
+          {entry.company.name}
+        </p>
+      </div>
+
+      {menu && (
+        <div
+          className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[160px] text-sm"
+          style={{ top: menu.y, left: menu.x }}
         >
-          ✕
-        </button>
+          <button
+            onClick={() => { onToggleMute(); setMenu(null); }}
+            className="w-full text-left px-4 py-2 hover:bg-gray-50 text-gray-700"
+          >
+            {muted ? "Show jobs" : "Hide jobs"}
+          </button>
+          <button
+            onClick={() => { onRemove(); setMenu(null); }}
+            disabled={removing}
+            className="w-full text-left px-4 py-2 hover:bg-gray-50 text-red-500 disabled:opacity-50"
+          >
+            Remove from watchlist
+          </button>
+        </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -121,6 +152,11 @@ export default function JobsPage() {
   const [searchResults, setSearchResults] = useState<Company[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [mutedIds, setMutedIds] = useState<Set<number>>(() => {
+    if (typeof window === "undefined") return new Set();
+    const stored = localStorage.getItem("muted_companies");
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  });
   const watchlistedIds = new Set(watchlist.map((e) => e.company.id));
 
   // ── Auth + initial load ─────────────────────────────────────────────────
@@ -166,6 +202,19 @@ export default function JobsPage() {
     localStorage.setItem("filter_seniority", seniority);
     localStorage.setItem("filter_usOnly", String(usOnly));
   }, [category, seniority, usOnly]);
+
+  useEffect(() => {
+    localStorage.setItem("muted_companies", JSON.stringify([...mutedIds]));
+  }, [mutedIds]);
+
+  function handleToggleMute(companyId: number) {
+    setMutedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(companyId)) next.delete(companyId);
+      else next.add(companyId);
+      return next;
+    });
+  }
 
   // ── Search ──────────────────────────────────────────────────────────────
   const runSearch = useCallback(async (q: string) => {
@@ -249,7 +298,8 @@ export default function JobsPage() {
     router.replace("/");
   }
 
-  const visibleJobs = showAll ? jobs : jobs.slice(0, 10);
+  const filteredJobs = jobs.filter((j) => !mutedIds.has(j.company.id));
+  const visibleJobs = showAll ? filteredJobs : filteredJobs.slice(0, 10);
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -304,8 +354,8 @@ export default function JobsPage() {
           </div>
 
           {/* Job count */}
-          {!jobsLoading && !jobsError && jobs.length > 0 && (
-            <p className="text-sm text-gray-500 mb-3">{jobs.length} {jobs.length === 1 ? "job" : "jobs"} from your watchlist</p>
+          {!jobsLoading && !jobsError && filteredJobs.length > 0 && (
+            <p className="text-sm text-gray-500 mb-3">{filteredJobs.length} {filteredJobs.length === 1 ? "job" : "jobs"} from your watchlist</p>
           )}
 
           {/* States */}
@@ -313,7 +363,7 @@ export default function JobsPage() {
           {!jobsLoading && jobsError && (
             <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 text-sm text-red-700">{jobsError}</div>
           )}
-          {!jobsLoading && !jobsError && jobs.length === 0 && (
+          {!jobsLoading && !jobsError && filteredJobs.length === 0 && (
             <div className="text-center py-20 text-gray-400">
               <p className="text-lg font-medium text-gray-500 mb-1">No jobs yet</p>
               <p className="text-sm">Add companies to your watchlist and check back soon.</p>
@@ -321,12 +371,12 @@ export default function JobsPage() {
           )}
 
           {/* Job cards */}
-          {!jobsLoading && !jobsError && jobs.length > 0 && (
+          {!jobsLoading && !jobsError && filteredJobs.length > 0 && (
             <div className="space-y-1.5">
               {visibleJobs.map((job) => <JobCard key={job.id} job={job} />)}
-              {jobs.length > 10 && (
+              {filteredJobs.length > 10 && (
                 <button onClick={() => setShowAll(!showAll)} className="w-full text-sm text-gray-500 hover:text-gray-700 py-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors">
-                  {showAll ? "Show less" : `See ${jobs.length - 10} more`}
+                  {showAll ? "Show less" : `See ${filteredJobs.length - 10} more`}
                 </button>
               )}
             </div>
@@ -384,6 +434,8 @@ export default function JobsPage() {
                   entry={entry}
                   onRemove={() => handleRemove(entry.company.id)}
                   removing={actionLoading === entry.company.id}
+                  muted={mutedIds.has(entry.company.id)}
+                  onToggleMute={() => handleToggleMute(entry.company.id)}
                 />
               ))}
             </div>
