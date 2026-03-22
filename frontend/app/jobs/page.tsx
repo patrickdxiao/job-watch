@@ -1,9 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { fetchJobs, subscribeToPush, type Job } from "@/lib/api";
+import {
+  fetchJobs,
+  subscribeToPush,
+  fetchWatchlist,
+  addToWatchlist,
+  removeFromWatchlist,
+  searchCompanies,
+  type Job,
+  type Company,
+  type WatchlistEntry,
+} from "@/lib/api";
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -23,7 +32,7 @@ function JobCard({ job }: { job: Job }) {
       href={job.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="block bg-white border border-gray-200 rounded-xl px-5 py-4 hover:border-gray-300 hover:shadow-sm transition-all"
+      className="block bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-gray-300 hover:shadow-sm transition-all"
     >
       <div className="flex items-center gap-3">
         <div className="shrink-0 w-8 h-8 flex items-center justify-center">
@@ -53,25 +62,72 @@ function JobCard({ job }: { job: Job }) {
   );
 }
 
+function WatchlistCard({
+  entry,
+  onRemove,
+  removing,
+}: {
+  entry: WatchlistEntry;
+  onRemove: () => void;
+  removing: boolean;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 relative group"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {entry.company.logoUrl ? (
+        <img
+          src={entry.company.logoUrl}
+          alt={entry.company.name}
+          className="w-6 h-6 rounded object-contain shrink-0"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+        />
+      ) : (
+        <div className="w-6 h-6 rounded bg-gray-100 shrink-0" />
+      )}
+      <p className="text-sm text-gray-800 flex-1 truncate">{entry.company.name}</p>
+      {hovered && (
+        <button
+          onClick={onRemove}
+          disabled={removing}
+          className="text-gray-300 hover:text-red-400 transition-colors disabled:opacity-50 text-xs"
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function JobsPage() {
   const router = useRouter();
+
+  // ── Jobs state ──────────────────────────────────────────────────────────
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "granted" | "denied">("idle");
+  const [jobsLoading, setJobsLoading] = useState(true);
+  const [jobsError, setJobsError] = useState("");
   const [category, setCategory] = useState(() => typeof window !== "undefined" ? localStorage.getItem("filter_category") ?? "" : "");
   const [seniority, setSeniority] = useState(() => typeof window !== "undefined" ? localStorage.getItem("filter_seniority") ?? "" : "");
   const [usOnly, setUsOnly] = useState(() => typeof window !== "undefined" ? localStorage.getItem("filter_usOnly") === "true" : false);
   const [showAll, setShowAll] = useState(false);
+  const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "granted" | "denied">("idle");
 
+  // ── Watchlist state ─────────────────────────────────────────────────────
+  const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([]);
+  const [query, setQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Company[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const watchlistedIds = new Set(watchlist.map((e) => e.company.id));
+
+  // ── Auth + initial load ─────────────────────────────────────────────────
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) {
-      router.replace("/");
-      return;
-    }
+    if (!token) { router.replace("/"); return; }
 
-    // Restore notification state from browser permission + localStorage
     if ("Notification" in window) {
       if (Notification.permission === "granted" && localStorage.getItem("notifs") === "on") {
         setNotifStatus("granted");
@@ -79,13 +135,16 @@ export default function JobsPage() {
         setNotifStatus("denied");
       }
     }
+
+    fetchWatchlist().then(setWatchlist).catch(() => {});
   }, [router]);
 
+  // ── Fetch jobs when filters change ──────────────────────────────────────
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
-    setLoading(true);
-    setError("");
+    setJobsLoading(true);
+    setJobsError("");
     setShowAll(false);
     fetchJobs(category || undefined, seniority || undefined, usOnly || undefined)
       .then(setJobs)
@@ -95,23 +154,61 @@ export default function JobsPage() {
           localStorage.removeItem("token");
           router.replace("/");
         } else {
-          setError(msg);
+          setJobsError(msg);
         }
       })
-      .finally(() => setLoading(false));
+      .finally(() => setJobsLoading(false));
   }, [router, category, seniority, usOnly]);
 
+  // ── Persist filters ─────────────────────────────────────────────────────
   useEffect(() => {
     localStorage.setItem("filter_category", category);
     localStorage.setItem("filter_seniority", seniority);
     localStorage.setItem("filter_usOnly", String(usOnly));
   }, [category, seniority, usOnly]);
 
-  function handleLogout() {
-    localStorage.removeItem("token");
-    router.replace("/");
+  // ── Search ──────────────────────────────────────────────────────────────
+  const runSearch = useCallback(async (q: string) => {
+    if (!q.trim()) { setSearchResults([]); return; }
+    setSearchLoading(true);
+    try {
+      setSearchResults(await searchCompanies(q));
+    } catch { /* ignore */ } finally {
+      setSearchLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => runSearch(query), 300);
+    return () => clearTimeout(timer);
+  }, [query, runSearch]);
+
+  // ── Add / Remove ────────────────────────────────────────────────────────
+  async function handleAdd(company: Company) {
+    setActionLoading(company.id);
+    try {
+      const entry = await addToWatchlist(company.id);
+      setWatchlist((prev) => [...prev, entry]);
+      setQuery("");
+      setSearchResults([]);
+      fetchJobs(category || undefined, seniority || undefined, usOnly || undefined).then(setJobs);
+    } catch { /* ignore */ } finally {
+      setActionLoading(null);
+    }
   }
 
+  async function handleRemove(companyId: number) {
+    setActionLoading(companyId);
+    try {
+      await removeFromWatchlist(companyId);
+      setWatchlist((prev) => prev.filter((e) => e.company.id !== companyId));
+      fetchJobs(category || undefined, seniority || undefined, usOnly || undefined).then(setJobs);
+    } catch { /* ignore */ } finally {
+      setActionLoading(null);
+    }
+  }
+
+  // ── Notifications ───────────────────────────────────────────────────────
   async function handleEnableNotifications() {
     if (!("Notification" in window) || !("serviceWorker" in navigator)) {
       alert("Push notifications are not supported in this browser.");
@@ -119,10 +216,7 @@ export default function JobsPage() {
     }
     setNotifStatus("loading");
     const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      setNotifStatus("denied");
-      return;
-    }
+    if (permission !== "granted") { setNotifStatus("denied"); return; }
     try {
       const reg = await navigator.serviceWorker.register("/sw.js");
       const sub = await reg.pushManager.subscribe({
@@ -145,139 +239,157 @@ export default function JobsPage() {
         const sub = await reg.pushManager.getSubscription();
         if (sub) await sub.unsubscribe();
       }
-    } catch (err) {
-      console.error(err);
-    }
+    } catch { /* ignore */ }
     localStorage.removeItem("notifs");
     setNotifStatus("idle");
   }
+
+  function handleLogout() {
+    localStorage.removeItem("token");
+    router.replace("/");
+  }
+
+  const visibleJobs = showAll ? jobs : jobs.slice(0, 10);
 
   return (
     <main className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">JobWatch</h1>
           <div className="flex items-center gap-3">
-            <Link
-              href="/watchlist"
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-            >
-              Manage Watchlist
-            </Link>
             {notifStatus === "granted" ? (
-              <button
-                onClick={handleDisableNotifications}
-                className="text-sm text-green-600 hover:text-red-500 font-medium transition-colors"
-              >
+              <button onClick={handleDisableNotifications} className="text-sm text-green-600 hover:text-red-500 font-medium transition-colors">
                 Notifications on
               </button>
             ) : (
-              <button
-                onClick={handleEnableNotifications}
-                disabled={notifStatus === "loading" || notifStatus === "denied"}
-                className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
-              >
+              <button onClick={handleEnableNotifications} disabled={notifStatus === "loading" || notifStatus === "denied"} className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50">
                 {notifStatus === "loading" ? "Enabling…" : notifStatus === "denied" ? "Blocked" : "Enable Notifications"}
               </button>
             )}
-            <button
-              onClick={handleLogout}
-              className="text-sm text-gray-500 hover:text-gray-700"
-            >
+            <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700">
               Log out
             </button>
           </div>
         </div>
       </header>
 
-      {/* Filters */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex gap-2 flex-wrap">
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 bg-white focus:outline-none focus:border-gray-400"
-          >
-            <option value="">All roles</option>
-            <option value="technical">Technical</option>
-            <option value="product">Product</option>
-            <option value="design">Design</option>
-            <option value="marketing">Marketing</option>
-            <option value="recruiting">Recruiting</option>
-            <option value="business">Business</option>
-            <option value="leadership">Leadership</option>
-            <option value="other">Other</option>
-          </select>
-          <select
-            value={seniority}
-            onChange={(e) => setSeniority(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 bg-white focus:outline-none focus:border-gray-400"
-          >
-            <option value="">All levels</option>
-            <option value="intern">Intern</option>
-            <option value="early career">Early Career</option>
-            <option value="mid-level">Mid-level</option>
-            <option value="experienced">Experienced</option>
-          </select>
-          <button
-            onClick={() => setUsOnly(!usOnly)}
-            className={`text-sm px-3 py-1.5 rounded-lg border transition-colors ${
-              usOnly
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
-            }`}
-          >
-            🇺🇸 US only
-          </button>
+      <div className="max-w-6xl mx-auto px-6 py-6 flex gap-6 items-start">
+
+        {/* ── Left: Jobs feed ─────────────────────────────────────────────── */}
+        <div className="flex-1 min-w-0 max-w-2xl">
+          {/* Filters */}
+          <div className="flex gap-2 flex-wrap mb-4">
+            <select value={category} onChange={(e) => setCategory(e.target.value)} className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 bg-white focus:outline-none focus:border-gray-400">
+              <option value="">All roles</option>
+              <option value="technical">Technical</option>
+              <option value="product">Product</option>
+              <option value="design">Design</option>
+              <option value="marketing">Marketing</option>
+              <option value="recruiting">Recruiting</option>
+              <option value="business">Business</option>
+              <option value="leadership">Leadership</option>
+              <option value="other">Other</option>
+            </select>
+            <select value={seniority} onChange={(e) => setSeniority(e.target.value)} className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 bg-white focus:outline-none focus:border-gray-400">
+              <option value="">All levels</option>
+              <option value="intern">Intern</option>
+              <option value="early career">Early Career</option>
+              <option value="mid-level">Mid-level</option>
+              <option value="experienced">Experienced</option>
+            </select>
+            <button onClick={() => setUsOnly(!usOnly)} className={`text-sm px-3 py-1.5 rounded-lg border transition-colors ${usOnly ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}>
+              🇺🇸 US only
+            </button>
+          </div>
+
+          {/* Job count */}
+          {!jobsLoading && !jobsError && jobs.length > 0 && (
+            <p className="text-sm text-gray-500 mb-3">{jobs.length} {jobs.length === 1 ? "job" : "jobs"} from your watchlist</p>
+          )}
+
+          {/* States */}
+          {jobsLoading && <p className="text-center text-gray-400 text-sm py-16">Loading jobs…</p>}
+          {!jobsLoading && jobsError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 text-sm text-red-700">{jobsError}</div>
+          )}
+          {!jobsLoading && !jobsError && jobs.length === 0 && (
+            <div className="text-center py-20 text-gray-400">
+              <p className="text-lg font-medium text-gray-500 mb-1">No jobs yet</p>
+              <p className="text-sm">Add companies to your watchlist and check back soon.</p>
+            </div>
+          )}
+
+          {/* Job cards */}
+          {!jobsLoading && !jobsError && jobs.length > 0 && (
+            <div className="space-y-1.5">
+              {visibleJobs.map((job) => <JobCard key={job.id} job={job} />)}
+              {jobs.length > 10 && (
+                <button onClick={() => setShowAll(!showAll)} className="w-full text-sm text-gray-500 hover:text-gray-700 py-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors">
+                  {showAll ? "Show less" : `See ${jobs.length - 10} more`}
+                </button>
+              )}
+            </div>
+          )}
         </div>
-      </div>
 
-      {/* Body */}
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        {loading && (
-          <p className="text-center text-gray-400 text-sm py-16">Loading jobs…</p>
-        )}
+        {/* ── Right: Watchlist panel ──────────────────────────────────────── */}
+        <div className="w-64 shrink-0 sticky top-20">
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Watchlist</p>
 
-        {!loading && error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+            {/* Search */}
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Add a company…"
+              className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 mb-2"
+            />
 
-        {!loading && !error && jobs.length === 0 && (
-          <div className="text-center py-20 text-gray-400">
-            <p className="text-lg font-medium text-gray-500 mb-1">No jobs yet</p>
-            <p className="text-sm mb-6">
-              Add companies to your watchlist and check back soon.
-            </p>
-            <Link
-              href="/watchlist"
-              className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              Manage Watchlist
-            </Link>
-          </div>
-        )}
-
-        {!loading && !error && jobs.length > 0 && (
-          <div className="space-y-3">
-            <p className="text-sm text-gray-500 mb-4">
-              {jobs.length} {jobs.length === 1 ? "job" : "jobs"} from your watchlist
-            </p>
-            {(showAll ? jobs : jobs.slice(0, 10)).map((job) => (
-              <JobCard key={job.id} job={job} />
-            ))}
-            {jobs.length > 10 && (
-              <button
-                onClick={() => setShowAll(!showAll)}
-                className="w-full text-sm text-gray-500 hover:text-gray-700 py-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors"
-              >
-                {showAll ? "Show less" : `See ${jobs.length - 10} more`}
-              </button>
+            {/* Search results */}
+            {searchLoading && <p className="text-xs text-gray-400 px-1 mb-2">Searching…</p>}
+            {!searchLoading && searchResults.length > 0 && (
+              <div className="border border-gray-100 rounded-lg mb-2 overflow-hidden">
+                {searchResults.map((company) => (
+                  <button
+                    key={company.id}
+                    onClick={() => !watchlistedIds.has(company.id) && handleAdd(company)}
+                    disabled={watchlistedIds.has(company.id) || actionLoading === company.id}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 disabled:opacity-50 text-sm"
+                  >
+                    {company.logoUrl ? (
+                      <img src={company.logoUrl} alt={company.name} className="w-5 h-5 rounded object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    ) : (
+                      <div className="w-5 h-5 rounded bg-gray-100 shrink-0" />
+                    )}
+                    <span className="truncate">{company.name}</span>
+                    {watchlistedIds.has(company.id) && <span className="ml-auto text-xs text-gray-400">Added</span>}
+                  </button>
+                ))}
+              </div>
             )}
+            {!searchLoading && query.trim() && searchResults.length === 0 && (
+              <p className="text-xs text-gray-400 px-1 mb-2">Not found — try exact slug (e.g. "figma")</p>
+            )}
+
+            {/* Watchlist companies */}
+            <div className="space-y-0.5">
+              {watchlist.length === 0 && !query && (
+                <p className="text-xs text-gray-400 px-3 py-2">No companies yet.</p>
+              )}
+              {watchlist.map((entry) => (
+                <WatchlistCard
+                  key={entry.id}
+                  entry={entry}
+                  onRemove={() => handleRemove(entry.company.id)}
+                  removing={actionLoading === entry.company.id}
+                />
+              ))}
+            </div>
           </div>
-        )}
+        </div>
+
       </div>
     </main>
   );
