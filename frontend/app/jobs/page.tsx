@@ -307,7 +307,7 @@ export default function JobsPage() {
   }, [category, seniority, usOnly]);
 
   useEffect(() => {
-    localStorage.setItem("muted_companies", JSON.stringify([...mutedIds]));
+    localStorage.setItem("muted_companies", JSON.stringify(Array.from(mutedIds)));
   }, [mutedIds]);
 
   function handleToggleMute(companyId: number) {

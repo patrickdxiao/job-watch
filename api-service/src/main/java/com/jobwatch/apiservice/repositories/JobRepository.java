@@ -22,7 +22,8 @@ public interface JobRepository extends JpaRepository<Job, Long> {
            "AND (:category IS NULL OR j.category = :category) " +
            "AND (:seniority IS NULL OR j.seniority = :seniority) " +
            "AND (:usOnly = false OR (j.location IS NULL OR " +
-               "LOWER(j.location) LIKE '%united states%' OR " +
+               "(LOWER(j.location) NOT LIKE '%canada%' AND LOWER(j.location) NOT LIKE '%ontario%' AND LOWER(j.location) NOT LIKE '%toronto%' AND LOWER(j.location) NOT LIKE '%vancouver%' AND LOWER(j.location) NOT LIKE '%montreal%' AND " +
+               "(LOWER(j.location) LIKE '%united states%' OR " +
                "LOWER(j.location) LIKE '%usa%' OR " +
                "LOWER(j.location) LIKE '%, ca%' OR " +
                "LOWER(j.location) LIKE '%, ny%' OR " +
@@ -37,7 +38,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
                "LOWER(j.location) LIKE '%seattle%' OR " +
                "LOWER(j.location) LIKE '%austin%' OR " +
                "LOWER(j.location) LIKE '%chicago%' OR " +
-               "LOWER(j.location) LIKE '%boston%')) " +
+               "LOWER(j.location) LIKE '%boston%')))) " +
            "ORDER BY j.updatedAt DESC")
     List<Job> findJobsForWatchlistFiltered(@Param("user") User user,
                                            @Param("category") String category,
