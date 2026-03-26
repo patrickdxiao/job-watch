@@ -10,6 +10,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Collection;
 
 @Service
 public class PushNotificationService {
@@ -28,7 +29,7 @@ public class PushNotificationService {
         this.restTemplate = new RestTemplate();
     }
 
-    public void notifySubscribersForCompany(String companySlug, String companyName, String companyLogo, String jobTitle, String jobUrl) {
+    public void notifySubscribersForCompany(String companySlug, String companyName, String companyLogo, String jobTitle, String jobUrl, String jobCategory, String jobSeniority) {
         String url = apiBaseUrl + "/api/push/internal/subscriptions?companySlug=" + companySlug;
 
         List<Map> subscriptions = restTemplate.getForObject(url, List.class);
@@ -48,6 +49,11 @@ public class PushNotificationService {
 
         for (Map sub : subscriptions) {
             try {
+                String userEmail = (String) sub.get("userEmail");
+                if (userEmail != null && !matchesPreferences(userEmail, jobCategory, jobSeniority)) {
+                    continue;
+                }
+
                 String endpoint = (String) sub.get("endpoint");
                 String p256dh = (String) sub.get("p256dh");
                 String auth = (String) sub.get("auth");
@@ -60,6 +66,26 @@ public class PushNotificationService {
                 System.err.println("Failed to send push to subscription: " + e.getClass().getName() + ": " + e.getMessage());
                 e.printStackTrace();
             }
+        }
+    }
+
+    private boolean matchesPreferences(String userEmail, String jobCategory, String jobSeniority) {
+        try {
+            String url = apiBaseUrl + "/internal/preferences?email=" + userEmail;
+            Map prefs = restTemplate.getForObject(url, Map.class);
+            if (prefs == null) return true;
+
+            List<String> categories = (List<String>) prefs.get("categories");
+            List<String> seniorities = (List<String>) prefs.get("seniorities");
+
+            // Empty list = no filter = allow all
+            if (categories != null && !categories.isEmpty() && !categories.contains(jobCategory)) return false;
+            if (seniorities != null && !seniorities.isEmpty() && !seniorities.contains(jobSeniority)) return false;
+
+            return true;
+        } catch (Exception e) {
+            // If preferences can't be fetched, default to sending the notification
+            return true;
         }
     }
 }

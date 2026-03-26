@@ -53,7 +53,7 @@ public class PushController {
     }
 
     @GetMapping("/internal/subscriptions")
-    public ResponseEntity<List<PushSubscription>> getSubscriptionsForCompany(
+    public ResponseEntity<List<SubscriptionResponse>> getSubscriptionsForCompany(
             @RequestParam String companySlug) {
 
         Company company = companyRepository.findBySlug(companySlug)
@@ -61,12 +61,14 @@ public class PushController {
 
         List<Watchlist> watchers = watchlistRepository.findByCompany(company);
 
-        List<PushSubscription> subscriptions = watchers.stream()
-                .flatMap(w -> pushSubscriptionRepository.findByUser(w.getUser()).stream())
+        List<SubscriptionResponse> subscriptions = watchers.stream()
+                .flatMap(w -> pushSubscriptionRepository.findByUser(w.getUser()).stream()
+                        .map(s -> new SubscriptionResponse(s.getEndpoint(), s.getP256dh(), s.getAuth(), w.getUser().getEmail())))
                 .toList();
 
         return ResponseEntity.ok(subscriptions);
     }
 
     record SubscribeRequest(String endpoint, String p256dh, String auth) {}
+    record SubscriptionResponse(String endpoint, String p256dh, String auth, String userEmail) {}
 }

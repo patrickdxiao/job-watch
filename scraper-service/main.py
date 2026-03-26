@@ -53,7 +53,7 @@ def ingest_job(job: dict, category: str, seniority: str):
     except Exception as e:
         logging.error(f"Failed to ingest job {job['id']}: {e}")
 
-def notify_new_job(company_slug: str, company_name: str, company_logo: str, job_title: str, job_url: str):
+def notify_new_job(company_slug: str, company_name: str, company_logo: str, job_title: str, job_url: str, category: str, seniority: str):
     try:
         requests.post(
             f"{NOTIFICATION_SERVICE_URL}/internal/notify",
@@ -63,6 +63,8 @@ def notify_new_job(company_slug: str, company_name: str, company_logo: str, job_
                 "companyLogo": company_logo,
                 "jobTitle": job_title,
                 "jobUrl": job_url,
+                "category": category,
+                "seniority": seniority,
             },
             timeout=5
         )
@@ -84,7 +86,7 @@ def scrape_all():
                 if is_new_job(job["id"]):
                     classification = classify_job(job["title"])
                     ingest_job(job, classification["category"], classification["seniority"])
-                    notify_new_job(slug, company_name, company_logo, job["title"], job["url"])
+                    notify_new_job(slug, company_name, company_logo, job["title"], job["url"], classification["category"], classification["seniority"])
                     new_count += 1
             logging.info(f"{slug}: {new_count} new jobs published out of {len(jobs)} total")
         except Exception as e:

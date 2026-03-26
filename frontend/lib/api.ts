@@ -131,6 +131,22 @@ export async function searchCompanies(query: string): Promise<Company[]> {
   return handleResponse(res);
 }
 
+// ─── Preferences ──────────────────────────────────────────────────────────────
+
+export async function fetchPreferences(): Promise<{ categories: string[]; seniorities: string[] }> {
+  const res = await fetch(`${BASE_URL}/api/preferences`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function savePreferences(categories: string[], seniorities: string[]): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/preferences`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ categories, seniorities }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
 // ─── Push Notifications ───────────────────────────────────────────────────────
 
 export async function subscribeToPush(subscription: PushSubscriptionJSON): Promise<void> {

@@ -9,6 +9,8 @@ import {
   addToWatchlist,
   removeFromWatchlist,
   searchCompanies,
+  fetchPreferences,
+  savePreferences,
   type Job,
   type Company,
   type WatchlistEntry,
@@ -290,6 +292,11 @@ export default function JobsPage() {
       }
     }
 
+    fetchPreferences().then((prefs) => {
+      if (prefs.categories.length) setCategories(prefs.categories);
+      if (prefs.seniorities.length) setSeniorities(prefs.seniorities);
+    }).catch(() => {});
+
     fetchWatchlist().then((entries) => {
       const saved = localStorage.getItem("watchlist_order");
       if (saved) {
@@ -332,6 +339,7 @@ export default function JobsPage() {
     localStorage.setItem("filter_categories", JSON.stringify(categories));
     localStorage.setItem("filter_seniorities", JSON.stringify(seniorities));
     localStorage.setItem("filter_usOnly", String(usOnly));
+    savePreferences(categories, seniorities).catch(() => {});
   }, [categories, seniorities, usOnly]);
 
   useEffect(() => {
