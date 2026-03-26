@@ -14,14 +14,14 @@ import {
   type WatchlistEntry,
 } from "@/lib/api";
 
-function Dropdown({ value, onChange, options }: {
-  value: string;
-  onChange: (v: string) => void;
+function Dropdown({ values, onChange, options, placeholder }: {
+  values: string[];
+  onChange: (v: string[]) => void;
   options: { label: string; value: string }[];
+  placeholder: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const selected = options.find((o) => o.value === value) ?? options[0];
 
   useEffect(() => {
     if (!open) return;
@@ -32,28 +32,50 @@ function Dropdown({ value, onChange, options }: {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
+  function toggle(v: string) {
+    if (values.includes(v)) {
+      onChange(values.filter((x) => x !== v));
+    } else {
+      onChange([...values, v]);
+    }
+  }
+
+  const label = values.length === 0
+    ? placeholder
+    : values.length === 1
+    ? options.find((o) => o.value === values[0])?.label ?? placeholder
+    : `${values.length} selected`;
+
+  const active = values.length > 0;
+
   return (
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-1.5 text-xs font-medium border rounded-full px-3 py-1.5 bg-white focus:outline-none transition-colors ${value ? "border-gray-400 text-gray-800" : "border-gray-200 text-gray-500 hover:border-gray-400"}`}
+        className={`flex items-center gap-1.5 text-xs font-medium border rounded-full px-3 py-1.5 bg-white focus:outline-none transition-colors ${active ? "border-gray-400 text-gray-800" : "border-gray-200 text-gray-500 hover:border-gray-400"}`}
       >
-        {selected.label}
+        {label}
         <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
       {open && (
         <div className="absolute top-full mt-1 left-0 z-20 bg-white border border-gray-200 rounded-xl shadow-md py-1 min-w-[148px]">
-          {options.map((o) => (
-            <button
-              key={o.value}
-              onClick={() => { onChange(o.value); setOpen(false); }}
-              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors ${o.value === value ? "text-blue-600 font-semibold" : "text-gray-700"}`}
-            >
-              {o.label}
-            </button>
-          ))}
+          {options.map((o) => {
+            const selected = values.includes(o.value);
+            return (
+              <button
+                key={o.value}
+                onClick={() => toggle(o.value)}
+                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 transition-colors flex items-center gap-2 ${selected ? "text-blue-600 font-semibold" : "text-gray-700"}`}
+              >
+                <span className={`w-3 h-3 rounded-sm border flex items-center justify-center shrink-0 ${selected ? "bg-blue-600 border-blue-600" : "border-gray-300"}`}>
+                  {selected && <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                </span>
+                {o.label}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -205,8 +227,14 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jobsLoading, setJobsLoading] = useState(true);
   const [jobsError, setJobsError] = useState("");
-  const [category, setCategory] = useState(() => typeof window !== "undefined" ? localStorage.getItem("filter_category") ?? "" : "");
-  const [seniority, setSeniority] = useState(() => typeof window !== "undefined" ? localStorage.getItem("filter_seniority") ?? "" : "");
+  const [categories, setCategories] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(localStorage.getItem("filter_categories") ?? "[]"); } catch { return []; }
+  });
+  const [seniorities, setSeniorities] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(localStorage.getItem("filter_seniorities") ?? "[]"); } catch { return []; }
+  });
   const [usOnly, setUsOnly] = useState(() => typeof window !== "undefined" ? localStorage.getItem("filter_usOnly") === "true" : false);
   const [showAll, setShowAll] = useState(false);
   const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "granted" | "denied">("idle");
@@ -285,7 +313,7 @@ export default function JobsPage() {
     setJobsLoading(true);
     setJobsError("");
     setShowAll(false);
-    fetchJobs(category || undefined, seniority || undefined, usOnly || undefined)
+    fetchJobs(categories.length ? categories : undefined, seniorities.length ? seniorities : undefined, usOnly || undefined)
       .then(setJobs)
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : "Failed to load jobs.";
@@ -297,14 +325,14 @@ export default function JobsPage() {
         }
       })
       .finally(() => setJobsLoading(false));
-  }, [router, category, seniority, usOnly]);
+  }, [router, categories, seniorities, usOnly]);
 
   // ── Persist filters ─────────────────────────────────────────────────────
   useEffect(() => {
-    localStorage.setItem("filter_category", category);
-    localStorage.setItem("filter_seniority", seniority);
+    localStorage.setItem("filter_categories", JSON.stringify(categories));
+    localStorage.setItem("filter_seniorities", JSON.stringify(seniorities));
     localStorage.setItem("filter_usOnly", String(usOnly));
-  }, [category, seniority, usOnly]);
+  }, [categories, seniorities, usOnly]);
 
   useEffect(() => {
     localStorage.setItem("muted_companies", JSON.stringify(Array.from(mutedIds)));
@@ -343,7 +371,7 @@ export default function JobsPage() {
       setWatchlist((prev) => [...prev, entry]);
       setQuery("");
       setSearchResults([]);
-      fetchJobs(category || undefined, seniority || undefined, usOnly || undefined).then(setJobs);
+      fetchJobs(categories.length ? categories : undefined, seniorities.length ? seniorities : undefined, usOnly || undefined).then(setJobs);
     } catch { /* ignore */ } finally {
       setActionLoading(null);
     }
@@ -354,7 +382,7 @@ export default function JobsPage() {
     try {
       await removeFromWatchlist(companyId);
       setWatchlist((prev) => prev.filter((e) => e.company.id !== companyId));
-      fetchJobs(category || undefined, seniority || undefined, usOnly || undefined).then(setJobs);
+      fetchJobs(categories.length ? categories : undefined, seniorities.length ? seniorities : undefined, usOnly || undefined).then(setJobs);
     } catch { /* ignore */ } finally {
       setActionLoading(null);
     }
@@ -416,10 +444,10 @@ export default function JobsPage() {
           <h1 className="text-base font-semibold text-gray-900 shrink-0">JobWatch</h1>
           <div className="flex items-center gap-2 flex-1">
             <Dropdown
-              value={category}
-              onChange={(v) => { setCategory(v); }}
+              values={categories}
+              onChange={setCategories}
+              placeholder="All roles"
               options={[
-                { label: "All roles", value: "" },
                 { label: "Technical", value: "technical" },
                 { label: "Product", value: "product" },
                 { label: "Design", value: "design" },
@@ -431,10 +459,10 @@ export default function JobsPage() {
               ]}
             />
             <Dropdown
-              value={seniority}
-              onChange={(v) => { setSeniority(v); }}
+              values={seniorities}
+              onChange={setSeniorities}
+              placeholder="All levels"
               options={[
-                { label: "All levels", value: "" },
                 { label: "Intern", value: "intern" },
                 { label: "Early Career", value: "early career" },
                 { label: "Mid-level", value: "mid-level" },

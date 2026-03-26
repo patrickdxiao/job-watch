@@ -5,6 +5,7 @@ import com.jobwatch.apiservice.models.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,8 +20,8 @@ public interface JobRepository extends JpaRepository<Job, Long> {
 
     @Query("SELECT j FROM Job j WHERE j.company IN " +
            "(SELECT w.company FROM Watchlist w WHERE w.user = :user) " +
-           "AND (:category IS NULL OR j.category = :category) " +
-           "AND (:seniority IS NULL OR j.seniority = :seniority) " +
+           "AND (:#{#categories == null || #categories.isEmpty()} = true OR j.category IN :categories) " +
+           "AND (:#{#seniorities == null || #seniorities.isEmpty()} = true OR j.seniority IN :seniorities) " +
            "AND (:usOnly = false OR (j.location IS NULL OR " +
                "(LOWER(j.location) NOT LIKE '%canada%' AND LOWER(j.location) NOT LIKE '%ontario%' AND LOWER(j.location) NOT LIKE '%toronto%' AND LOWER(j.location) NOT LIKE '%vancouver%' AND LOWER(j.location) NOT LIKE '%montreal%' AND " +
                "LOWER(j.location) NOT LIKE '%poland%' AND LOWER(j.location) NOT LIKE '%germany%' AND LOWER(j.location) NOT LIKE '%france%' AND LOWER(j.location) NOT LIKE '%uk%' AND LOWER(j.location) NOT LIKE '%london%' AND LOWER(j.location) NOT LIKE '%ireland%' AND LOWER(j.location) NOT LIKE '%india%' AND LOWER(j.location) NOT LIKE '%singapore%' AND LOWER(j.location) NOT LIKE '%australia%' AND LOWER(j.location) NOT LIKE '%brazil%' AND " +
@@ -44,7 +45,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
                "LOWER(j.location) LIKE '%boston%')))) " +
            "ORDER BY j.updatedAt DESC")
     List<Job> findJobsForWatchlistFiltered(@Param("user") User user,
-                                           @Param("category") String category,
-                                           @Param("seniority") String seniority,
+                                           @Param("categories") Collection<String> categories,
+                                           @Param("seniorities") Collection<String> seniorities,
                                            @Param("usOnly") boolean usOnly);
 }

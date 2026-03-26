@@ -82,10 +82,10 @@ export async function login(
 
 // ─── Jobs ─────────────────────────────────────────────────────────────────────
 
-export async function fetchJobs(category?: string, seniority?: string, usOnly?: boolean): Promise<Job[]> {
+export async function fetchJobs(categories?: string[], seniorities?: string[], usOnly?: boolean): Promise<Job[]> {
   const params = new URLSearchParams();
-  if (category) params.set("category", category);
-  if (seniority) params.set("seniority", seniority);
+  if (categories?.length) categories.forEach((c) => params.append("category", c));
+  if (seniorities?.length) seniorities.forEach((s) => params.append("seniority", s));
   if (usOnly) params.set("usOnly", "true");
   const query = params.toString() ? `?${params.toString()}` : "";
   const res = await fetch(`${BASE_URL}/api/jobs${query}`, {

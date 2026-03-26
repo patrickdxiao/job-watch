@@ -8,6 +8,7 @@ import com.jobwatch.apiservice.repositories.JobRepository;
 import com.jobwatch.apiservice.repositories.UserRepository;
 import org.springframework.stereotype.Service;
 import java.util.List;
+import java.util.Collection;
 
 @Service
 public class JobService {
@@ -23,10 +24,10 @@ public class JobService {
         this.userRepository = userRepository;
     }
 
-    public List<Job> getJobsForUser(String email, String category, String seniority, boolean usOnly) {
+    public List<Job> getJobsForUser(String email, List<String> categories, List<String> seniorities, boolean usOnly) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return jobRepository.findJobsForWatchlistFiltered(user, category, seniority, usOnly);
+        return jobRepository.findJobsForWatchlistFiltered(user, categories, seniorities, usOnly);
     }
 
     public Job ingestJob(String externalId, String title, String location,
