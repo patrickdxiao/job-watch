@@ -23,16 +23,19 @@ public interface JobRepository extends JpaRepository<Job, Long> {
            "AND (:seniority IS NULL OR j.seniority = :seniority) " +
            "AND (:usOnly = false OR (j.location IS NULL OR " +
                "(LOWER(j.location) NOT LIKE '%canada%' AND LOWER(j.location) NOT LIKE '%ontario%' AND LOWER(j.location) NOT LIKE '%toronto%' AND LOWER(j.location) NOT LIKE '%vancouver%' AND LOWER(j.location) NOT LIKE '%montreal%' AND " +
+               "LOWER(j.location) NOT LIKE '%poland%' AND LOWER(j.location) NOT LIKE '%germany%' AND LOWER(j.location) NOT LIKE '%france%' AND LOWER(j.location) NOT LIKE '%uk%' AND LOWER(j.location) NOT LIKE '%london%' AND LOWER(j.location) NOT LIKE '%ireland%' AND LOWER(j.location) NOT LIKE '%india%' AND LOWER(j.location) NOT LIKE '%singapore%' AND LOWER(j.location) NOT LIKE '%australia%' AND LOWER(j.location) NOT LIKE '%brazil%' AND " +
                "(LOWER(j.location) LIKE '%united states%' OR " +
                "LOWER(j.location) LIKE '%usa%' OR " +
-               "LOWER(j.location) LIKE '%, ca%' OR " +
-               "LOWER(j.location) LIKE '%, ny%' OR " +
-               "LOWER(j.location) LIKE '%, wa%' OR " +
-               "LOWER(j.location) LIKE '%, tx%' OR " +
-               "LOWER(j.location) LIKE '%, ma%' OR " +
-               "LOWER(j.location) LIKE '%, co%' OR " +
-               "LOWER(j.location) LIKE '%, il%' OR " +
-               "LOWER(j.location) LIKE '%remote%' OR " +
+               "LOWER(j.location) LIKE '%remote - us%' OR " +
+               "LOWER(j.location) LIKE '%us remote%' OR " +
+               "LOWER(j.location) LIKE '%remote, us%' OR " +
+               "LOWER(j.location) LIKE '%, ca' OR " +
+               "LOWER(j.location) LIKE '%, ny' OR " +
+               "LOWER(j.location) LIKE '%, wa' OR " +
+               "LOWER(j.location) LIKE '%, tx' OR " +
+               "LOWER(j.location) LIKE '%, ma' OR " +
+               "LOWER(j.location) LIKE '%, co' OR " +
+               "LOWER(j.location) LIKE '%, il' OR " +
                "LOWER(j.location) LIKE '%san francisco%' OR " +
                "LOWER(j.location) LIKE '%new york%' OR " +
                "LOWER(j.location) LIKE '%seattle%' OR " +
