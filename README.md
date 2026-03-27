@@ -22,6 +22,17 @@ job-watch/
 
 ---
 
+## Features
+
+- Push notifications within 60 seconds of a new job posting, even when the browser tab is closed
+- Covers companies hiring on Greenhouse, Lever, or Ashby
+- Watchlist — add/remove companies, drag to reorder, mute individual companies
+- Jobs feed — browse all postings from your watched companies in one place
+- Filters — by job category, seniority level, and US-only; saved and restored across sessions
+- Notifications respect your filters — only get alerted for roles that match your preferences
+
+---
+
 ## Running Locally
 
 **Prerequisites:** Docker, Docker Compose
