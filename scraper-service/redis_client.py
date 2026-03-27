@@ -11,4 +11,4 @@ client = redis.Redis(
 )
 
 def is_new_job(job_id: str) -> bool:
-    return client.set(job_id, 1, nx=True, ex=86400)
+    return client.set(job_id, 1, nx=True, ex=7776000)  # 90 days
