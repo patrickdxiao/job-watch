@@ -34,7 +34,7 @@ services:
       - api-service
     environment:
       API_BASE_URL: http://api-service:8080
-      VAPID_PUBLIC_KEY: BIp3kUetAw4oPNGzTPGE3Cm-q706uOKf23Kvf-ZV8n_47pbHKu9VXjOMr4O0n1IGZkIolJG6HczKBLqWqVA6rqc
+      VAPID_PUBLIC_KEY: BIp3kUetAw4oPNGzTPGE3Cm-q706uOKf23Kvf-ZV8n_47pbHKu9VXjOMr4O0n1IGZkIolJG6HczKBLqWqVA6rqc=
       VAPID_PRIVATE_KEY: AMAp5tBZbVDoXwjLqzTnq4HepMxGznN3VExEnTeNWOzs
 
   scraper-service:
