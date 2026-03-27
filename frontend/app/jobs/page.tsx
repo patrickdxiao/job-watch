@@ -409,7 +409,7 @@ export default function JobsPage() {
       const reg = await navigator.serviceWorker.register("/sw.js");
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: "BIp3kUetAw4oPNGzTPGE3Cm-q706uOKf23Kvf-ZV8n_47pbHKu9VXjOMr4O0n1IGZkIolJG6HczKBLqWqVA6rqc",
+        applicationServerKey: "BAbLhbqJMN9e9nJ-2VLa2u54r-o7j70PpC-nUcAqmd6KrOJF03t-IAiIZwalr9LjrOz8QyY5vIKMlxeLNMtFDhM",
       });
       await subscribeToPush(sub.toJSON() as PushSubscriptionJSON);
       localStorage.setItem("notifs", "on");
