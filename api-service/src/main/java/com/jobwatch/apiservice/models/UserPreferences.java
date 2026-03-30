@@ -26,4 +26,7 @@ public class UserPreferences {
 
     @Column(name = "seniorities", length = 500)
     private String seniorities;
+
+    @Column(name = "muted_companies", length = 2000)
+    private String mutedCompanies;
 }

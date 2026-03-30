@@ -11,6 +11,7 @@ import {
   searchCompanies,
   fetchPreferences,
   savePreferences,
+  toggleMuteCompany,
   type Job,
   type Company,
   type WatchlistEntry,
@@ -251,11 +252,8 @@ export default function JobsPage() {
   const [searchResults, setSearchResults] = useState<Company[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
-  const [mutedIds, setMutedIds] = useState<Set<number>>(() => {
-    if (typeof window === "undefined") return new Set();
-    const stored = localStorage.getItem("muted_companies");
-    return stored ? new Set(JSON.parse(stored)) : new Set();
-  });
+  const [mutedSlugs, setMutedSlugs] = useState<Set<string>>(new Set());
+  const mutedIds = new Set(watchlist.filter((e) => mutedSlugs.has(e.company.slug)).map((e) => e.company.id));
   const watchlistedIds = new Set(watchlist.map((e) => e.company.id));
   const dragIndex = useRef<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -299,6 +297,7 @@ export default function JobsPage() {
     fetchPreferences().then((prefs) => {
       if (prefs.categories.length) setCategories(prefs.categories);
       if (prefs.seniorities.length) setSeniorities(prefs.seniorities);
+      if (prefs.mutedCompanies?.length) setMutedSlugs(new Set(prefs.mutedCompanies));
     }).catch(() => {});
 
     fetchWatchlist().then((entries) => {
@@ -346,17 +345,10 @@ export default function JobsPage() {
     savePreferences(categories, seniorities).catch(() => {});
   }, [categories, seniorities, usOnly]);
 
-  useEffect(() => {
-    localStorage.setItem("muted_companies", JSON.stringify(Array.from(mutedIds)));
-  }, [mutedIds]);
-
   function handleToggleMute(companyId: number) {
-    setMutedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(companyId)) next.delete(companyId);
-      else next.add(companyId);
-      return next;
-    });
+    toggleMuteCompany(companyId).then((prefs) => {
+      setMutedSlugs(new Set(prefs.mutedCompanies));
+    }).catch(() => {});
   }
 
   // ── Search ──────────────────────────────────────────────────────────────

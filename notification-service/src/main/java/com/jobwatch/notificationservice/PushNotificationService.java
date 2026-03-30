@@ -54,7 +54,7 @@ public class PushNotificationService {
 
         for (Map sub : subscriptions) {
             String userEmail = (String) sub.get("userEmail");
-            if (userEmail != null && !matchesPreferences(userEmail, jobCategory, jobSeniority)) {
+            if (userEmail != null && !matchesPreferences(userEmail, companySlug, jobCategory, jobSeniority)) {
                 continue;
             }
 
@@ -76,7 +76,7 @@ public class PushNotificationService {
         }
     }
 
-    private boolean matchesPreferences(String userEmail, String jobCategory, String jobSeniority) {
+    private boolean matchesPreferences(String userEmail, String companySlug, String jobCategory, String jobSeniority) {
         try {
             String url = apiBaseUrl + "/internal/preferences?email=" + userEmail;
             Map prefs = restTemplate.getForObject(url, Map.class);
@@ -84,6 +84,10 @@ public class PushNotificationService {
 
             List<String> categories = (List<String>) prefs.get("categories");
             List<String> seniorities = (List<String>) prefs.get("seniorities");
+            List<String> mutedCompanies = (List<String>) prefs.get("mutedCompanies");
+
+            // Muted company — skip entirely
+            if (mutedCompanies != null && mutedCompanies.contains(companySlug)) return false;
 
             // Empty list = no filter = allow all
             if (categories != null && !categories.isEmpty() && !categories.contains(jobCategory)) return false;

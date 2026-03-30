@@ -133,8 +133,16 @@ export async function searchCompanies(query: string): Promise<Company[]> {
 
 // ─── Preferences ──────────────────────────────────────────────────────────────
 
-export async function fetchPreferences(): Promise<{ categories: string[]; seniorities: string[] }> {
+export async function fetchPreferences(): Promise<{ categories: string[]; seniorities: string[]; mutedCompanies: string[] }> {
   const res = await fetch(`${BASE_URL}/api/preferences`, { headers: authHeaders() });
+  return handleResponse(res);
+}
+
+export async function toggleMuteCompany(companyId: number): Promise<{ mutedCompanies: string[] }> {
+  const res = await fetch(`${BASE_URL}/api/watchlist/${companyId}/mute`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
   return handleResponse(res);
 }
 
