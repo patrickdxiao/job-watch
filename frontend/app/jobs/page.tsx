@@ -123,9 +123,13 @@ function JobCard({ job }: { job: Job }) {
         </div>
         <div className="shrink-0 text-right space-y-0.5">
           <p className="text-[11px] text-gray-400">{timeAgo(job.updatedAt || job.createdAt)}</p>
-          {job.location && (
-            <p className="text-[11px] text-gray-400">{job.location}</p>
-          )}
+          {job.location && (() => {
+            const locs = job.location.split("; ");
+            const display = locs.length > 3
+              ? locs.slice(0, 2).join("; ") + `; +${locs.length - 2} more`
+              : job.location;
+            return <p className="text-[11px] text-gray-400">{display}</p>;
+          })()}
         </div>
       </div>
     </a>
