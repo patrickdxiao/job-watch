@@ -2,11 +2,12 @@ import time
 import logging
 import os
 import requests
+import schedule
 from dotenv import load_dotenv
 from adapters.greenhouse import fetch_jobs as greenhouse_fetch
 from adapters.lever import fetch_jobs as lever_fetch
 from adapters.ashby import fetch_jobs as ashby_fetch
-from redis_client import is_new_job
+from redis_client import is_new_job, pop_priority_slugs
 from classifier import classify_job
 
 load_dotenv()
@@ -78,33 +79,84 @@ def notify_new_job(company_slug: str, company_name: str, company_logo: str, job_
     except Exception as e:
         logging.error(f"Failed to notify for {company_slug}: {e}")
 
+def scrape_company(company: dict):
+    slug = company["slug"]
+    platform = company["platform"]
+    company_name = company.get("name", slug)
+    company_logo = company.get("logoUrl", "")
+    fetch_jobs = ADAPTERS[platform]
+    logging.info(f"Scraping {slug} ({platform})...")
+    try:
+        jobs = fetch_jobs(slug)
+        new_count = 0
+        for job in jobs:
+            if is_new_job(job["id"]):
+                classification = classify_job(job["title"])
+                ingest_job(job, classification["category"], classification["seniority"])
+                notify_new_job(slug, company_name, company_logo, job["title"], job["url"], classification["category"], classification["seniority"])
+                new_count += 1
+        logging.info(f"{slug}: {new_count} new jobs published out of {len(jobs)} total")
+    except Exception as e:
+        logging.error(f"Failed to scrape {slug}: {e}")
+
 def scrape_all():
-    for company in fetch_companies():
-        slug = company["slug"]
-        if not has_subscribers(slug):
-            logging.info(f"Skipping {slug} — no subscribers")
+    companies = fetch_companies()
+    company_by_slug = {c["slug"]: c for c in companies}
+
+    priority_slugs = pop_priority_slugs()
+    for slug in priority_slugs:
+        if slug in company_by_slug:
+            logging.info(f"Priority scrape: {slug}")
+            scrape_company(company_by_slug[slug])
+
+    for company in companies:
+        if not has_subscribers(company["slug"]):
+            logging.info(f"Skipping {company['slug']} — no subscribers")
             continue
+        scrape_company(company)
+
+def cleanup_stale_jobs():
+    logging.info("Running weekly stale job cleanup...")
+    companies = fetch_companies()
+    for company in companies:
+        slug = company["slug"]
         platform = company["platform"]
-        company_name = company.get("name", slug)
-        company_logo = company.get("logoUrl", "")
         fetch_jobs = ADAPTERS[platform]
-        logging.info(f"Scraping {slug} ({platform})...")
         try:
-            jobs = fetch_jobs(slug)
-            new_count = 0
-            for job in jobs:
-                if is_new_job(job["id"]):
-                    classification = classify_job(job["title"])
-                    ingest_job(job, classification["category"], classification["seniority"])
-                    notify_new_job(slug, company_name, company_logo, job["title"], job["url"], classification["category"], classification["seniority"])
-                    new_count += 1
-            logging.info(f"{slug}: {new_count} new jobs published out of {len(jobs)} total")
+            live_jobs = fetch_jobs(slug)
+            live_ids = [job["id"] for job in live_jobs]
+
+            stored_response = requests.get(
+                f"{API_BASE_URL}/internal/jobs/external-ids",
+                params={"companySlug": slug},
+                timeout=5
+            )
+            stored_response.raise_for_status()
+            stored_ids = stored_response.json()
+
+            stale_ids = [id for id in stored_ids if id not in set(live_ids)]
+            if stale_ids:
+                requests.delete(
+                    f"{API_BASE_URL}/internal/jobs/stale",
+                    params={"companySlug": slug},
+                    json=live_ids,
+                    timeout=5
+                ).raise_for_status()
+                logging.info(f"{slug}: removed {len(stale_ids)} stale jobs")
+            else:
+                logging.info(f"{slug}: no stale jobs")
         except Exception as e:
-            logging.error(f"Failed to scrape {slug}: {e}")
+            logging.error(f"Stale cleanup failed for {slug}: {e}")
+    logging.info("Stale job cleanup complete.")
 
 if __name__ == "__main__":
     logging.info("Scraper started")
+
+    # Saturday 10pm EST = Sunday 03:00 UTC (server runs UTC)
+    schedule.every().sunday.at("03:00").do(cleanup_stale_jobs)
+
     while True:
+        schedule.run_pending()
         scrape_all()
         logging.info(f"Sleeping {POLL_INTERVAL_SECONDS}s...")
         time.sleep(POLL_INTERVAL_SECONDS)

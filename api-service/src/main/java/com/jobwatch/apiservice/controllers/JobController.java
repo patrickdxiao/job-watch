@@ -3,6 +3,7 @@ package com.jobwatch.apiservice.controllers;
 import com.jobwatch.apiservice.models.Company;
 import com.jobwatch.apiservice.models.Job;
 import com.jobwatch.apiservice.repositories.CompanyRepository;
+import com.jobwatch.apiservice.repositories.JobRepository;
 import com.jobwatch.apiservice.services.JobService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -14,15 +15,28 @@ public class JobController {
 
     private final JobService jobService;
     private final CompanyRepository companyRepository;
+    private final JobRepository jobRepository;
 
-    public JobController(JobService jobService, CompanyRepository companyRepository) {
+    public JobController(JobService jobService, CompanyRepository companyRepository, JobRepository jobRepository) {
         this.jobService = jobService;
         this.companyRepository = companyRepository;
+        this.jobRepository = jobRepository;
     }
 
     @GetMapping("/internal/companies")
     public ResponseEntity<List<Company>> getCompanies() {
         return ResponseEntity.ok(companyRepository.findAll());
+    }
+
+    @GetMapping("/internal/jobs/external-ids")
+    public ResponseEntity<List<String>> getExternalIds(@RequestParam String companySlug) {
+        return ResponseEntity.ok(jobRepository.findExternalIdsByCompanySlug(companySlug));
+    }
+
+    @DeleteMapping("/internal/jobs/stale")
+    public ResponseEntity<?> deleteStaleJobs(@RequestParam String companySlug, @RequestBody List<String> liveIds) {
+        jobRepository.deleteStaleByCompanySlug(companySlug, liveIds);
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/api/jobs")

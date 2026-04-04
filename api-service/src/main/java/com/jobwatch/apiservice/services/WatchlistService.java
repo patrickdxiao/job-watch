@@ -6,6 +6,7 @@ import com.jobwatch.apiservice.models.Watchlist;
 import com.jobwatch.apiservice.repositories.CompanyRepository;
 import com.jobwatch.apiservice.repositories.UserRepository;
 import com.jobwatch.apiservice.repositories.WatchlistRepository;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
@@ -13,19 +14,24 @@ import java.util.Optional;
 @Service
 public class WatchlistService {
 
+    private static final String PRIORITY_QUEUE_KEY = "priority_scrape_queue";
+
     private final WatchlistRepository watchlistRepository;
     private final CompanyRepository companyRepository;
     private final UserRepository userRepository;
     private final CompanyDiscoveryService companyDiscoveryService;
+    private final StringRedisTemplate redisTemplate;
 
     public WatchlistService(WatchlistRepository watchlistRepository,
                             CompanyRepository companyRepository,
                             UserRepository userRepository,
-                            CompanyDiscoveryService companyDiscoveryService) {
+                            CompanyDiscoveryService companyDiscoveryService,
+                            StringRedisTemplate redisTemplate) {
         this.watchlistRepository = watchlistRepository;
         this.companyRepository = companyRepository;
         this.userRepository = userRepository;
         this.companyDiscoveryService = companyDiscoveryService;
+        this.redisTemplate = redisTemplate;
     }
 
     // Get all companies in watchlist
@@ -50,7 +56,9 @@ public class WatchlistService {
         Watchlist watchlist = new Watchlist();
         watchlist.setUser(user);
         watchlist.setCompany(company);
-        return watchlistRepository.save(watchlist);
+        Watchlist saved = watchlistRepository.save(watchlist);
+        redisTemplate.opsForList().leftPush(PRIORITY_QUEUE_KEY, company.getSlug());
+        return saved;
     }
 
     // Remove a company from watchlist
