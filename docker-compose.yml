@@ -1,11 +1,13 @@
 services:
   redis:
     image: redis:7
+    restart: always
     ports:
       - "6379:6379"
 
   postgres:
     image: postgres:16
+    restart: always
     environment:
       POSTGRES_DB: jobwatch
       POSTGRES_USER: jobwatch
@@ -17,6 +19,7 @@ services:
 
   api-service:
     build: ./api-service
+    restart: always
     ports:
       - "8080:8080"
     depends_on:
@@ -28,6 +31,7 @@ services:
 
   notification-service:
     build: ./notification-service
+    restart: always
     ports:
       - "8081:8081"
     depends_on:
@@ -39,6 +43,7 @@ services:
 
   scraper-service:
     build: ./scraper-service
+    restart: always
     depends_on:
       - redis
       - api-service
@@ -55,6 +60,7 @@ services:
       context: ./frontend
       args:
         NEXT_PUBLIC_API_URL: https://jobwatch.duckdns.org
+    restart: always
     ports:
       - "3000:3000"
     depends_on:
