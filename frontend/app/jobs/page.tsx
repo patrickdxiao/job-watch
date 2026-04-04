@@ -139,91 +139,74 @@ function JobCard({ job }: { job: Job }) {
 
 function WatchlistCard({
   entry,
-  onRemove,
   removing,
   muted,
-  onToggleMute,
   jobCount,
   onDragStart,
   onDragOver,
   onDrop,
   isDragOver,
+  selectMode,
+  selected,
+  onSelect,
+  onEnterSelectMode,
 }: {
   entry: WatchlistEntry;
-  onRemove: () => void;
   removing: boolean;
   muted: boolean;
-  onToggleMute: () => void;
   jobCount: number;
   onDragStart: () => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: () => void;
   isDragOver: boolean;
+  selectMode: boolean;
+  selected: boolean;
+  onSelect: () => void;
+  onEnterSelectMode: () => void;
 }) {
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-
-  function handleContextMenu(e: React.MouseEvent) {
-    setMenu({ x: e.clientX, y: e.clientY });
+  function handleClick() {
+    if (selectMode) {
+      onSelect();
+    } else {
+      onEnterSelectMode();
+    }
   }
 
-  useEffect(() => {
-    if (!menu) return;
-    function close() { setMenu(null); }
-    const timer = setTimeout(() => window.addEventListener("click", close), 0);
-    return () => { clearTimeout(timer); window.removeEventListener("click", close); };
-  }, [menu]);
-
   return (
-    <>
-      <div
-        className={`flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 cursor-grab active:cursor-grabbing select-none transition-colors ${isDragOver ? "border-t-2 border-blue-400" : ""}`}
-        onClick={handleContextMenu}
-        draggable
-        onDragStart={onDragStart}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
-      >
-        {entry.company.logoUrl ? (
-          <img
-            src={entry.company.logoUrl}
-            alt={entry.company.name}
-            className={`w-5 h-5 rounded object-contain shrink-0 ${muted ? "opacity-40" : ""}`}
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-          />
-        ) : (
-          <div className="w-5 h-5 rounded bg-gray-100 shrink-0" />
+    <div
+      className={`flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 select-none transition-colors cursor-pointer ${isDragOver ? "border-t-2 border-blue-400" : ""} ${selected ? "bg-blue-50" : ""}`}
+      onClick={handleClick}
+      draggable={!selectMode}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
+      <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${selected ? "bg-blue-600 border-blue-600" : "border-gray-300 bg-white"} ${selectMode ? "" : "invisible"}`}>
+        {selected && (
+          <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
         )}
-        <p className={`text-xs flex-1 truncate ${muted ? "text-gray-400" : "text-gray-700"}`}>
-          {entry.company.name}
-        </p>
-        {jobCount > 0 && (
-          <span className={`text-[10px] font-medium shrink-0 px-1.5 py-0.5 rounded-full ${muted ? "bg-gray-50 text-gray-300" : "bg-gray-100 text-gray-500"}`}>
-            {jobCount}
-          </span>
-        )}
-      </div>
-
-      {menu && (
-        <div
-          className="fixed z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[160px] text-sm"
-          style={{ top: menu.y, left: menu.x }}
-        >
-          <button
-            onClick={() => { onToggleMute(); setMenu(null); }}
-            className="w-full text-left px-4 py-2 text-xs hover:bg-gray-50 text-gray-700"
-          >
-            {muted ? "Show jobs" : "Hide jobs"}
-          </button>
-          <button
-            onClick={() => { onRemove(); setMenu(null); }}
-            disabled={removing}
-            className="w-full text-left px-4 py-2 text-xs hover:bg-gray-50 text-red-500 disabled:opacity-50"
-          >
-            Remove from watchlist
-          </button>
-        </div>
+      </span>
+      {entry.company.logoUrl ? (
+        <img
+          src={entry.company.logoUrl}
+          alt={entry.company.name}
+          className={`w-5 h-5 rounded object-contain shrink-0 ${muted ? "opacity-40" : ""}`}
+          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+        />
+      ) : (
+        <div className="w-5 h-5 rounded bg-gray-100 shrink-0" />
       )}
-    </>
+      <p className={`text-xs flex-1 truncate ${muted ? "text-gray-400" : "text-gray-700"}`}>
+        {entry.company.name}
+      </p>
+      {jobCount > 0 && (
+        <span className={`text-[10px] font-medium shrink-0 px-1.5 py-0.5 rounded-full ${muted ? "bg-gray-50 text-gray-300" : "bg-gray-100 text-gray-500"}`}>
+          {jobCount}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -257,6 +240,69 @@ export default function JobsPage() {
   const watchlistedIds = new Set(watchlist.map((e) => e.company.id));
   const dragIndex = useRef<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // ── Selection state ─────────────────────────────────────────────────────
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  function toggleSelectMode() {
+    setSelectMode((prev) => !prev);
+    setSelectedIds(new Set());
+  }
+
+  function enterSelectModeWith(companyId: number) {
+    setSelectMode(true);
+    setSelectedIds(new Set([companyId]));
+  }
+
+  function toggleSelectOne(companyId: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(companyId)) next.delete(companyId);
+      else next.add(companyId);
+      return next;
+    });
+  }
+
+  const allSelected = watchlist.length > 0 && selectedIds.size === watchlist.length;
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(watchlist.map((e) => e.company.id)));
+    }
+  }
+
+  async function handleBulkHide() {
+    const toMute = watchlist.filter((e) => selectedIds.has(e.company.id) && !mutedIds.has(e.company.id));
+    for (const entry of toMute) {
+      await toggleMuteCompany(entry.company.id).then((prefs) => {
+        setMutedSlugs(new Set(prefs.mutedCompanies));
+      }).catch(() => {});
+    }
+    setSelectedIds(new Set());
+    setSelectMode(false);
+  }
+
+  async function handleBulkShow() {
+    const toUnmute = watchlist.filter((e) => selectedIds.has(e.company.id) && mutedIds.has(e.company.id));
+    for (const entry of toUnmute) {
+      await toggleMuteCompany(entry.company.id).then((prefs) => {
+        setMutedSlugs(new Set(prefs.mutedCompanies));
+      }).catch(() => {});
+    }
+    setSelectedIds(new Set());
+    setSelectMode(false);
+  }
+
+  async function handleBulkRemove() {
+    for (const companyId of Array.from(selectedIds)) {
+      await handleRemove(companyId);
+    }
+    setSelectedIds(new Set());
+    setSelectMode(false);
+  }
 
   function handleDragStart(index: number) {
     dragIndex.current = index;
@@ -538,7 +584,9 @@ export default function JobsPage() {
         {/* ── Right: Watchlist panel ──────────────────────────────────────── */}
         <div className="w-60 shrink-0 sticky top-16">
           <div className="bg-white border border-gray-200 rounded-xl p-3">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-3 px-1">Watchlist</p>
+            <div className="flex items-center justify-between mb-3 px-1">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Watchlist</p>
+            </div>
 
             {/* Search */}
             <input
@@ -548,6 +596,58 @@ export default function JobsPage() {
               placeholder="Add a company…"
               className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:border-gray-400 mb-2 placeholder:text-gray-400"
             />
+
+            {/* Select all + bulk actions */}
+            {selectMode && (
+              <div className="mb-2 space-y-1">
+                <div className="flex items-center justify-between px-1 py-1">
+                  <button
+                    onClick={toggleSelectAll}
+                    className="flex items-center gap-2 text-left"
+                  >
+                    <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${allSelected ? "bg-blue-600 border-blue-600" : "border-gray-300 bg-white"}`}>
+                      {allSelected && (
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className="text-[11px] text-gray-600">Select all</span>
+                  </button>
+                  <button
+                    onClick={toggleSelectMode}
+                    className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                {selectedIds.size > 0 && (
+                  <div className="flex gap-2 px-1 pt-1 border-t border-gray-100">
+                    <button
+                      onClick={handleBulkHide}
+                      className="text-[11px] text-gray-600 hover:text-gray-900 transition-colors"
+                    >
+                      Hide jobs
+                    </button>
+                    <span className="text-gray-200">|</span>
+                    <button
+                      onClick={handleBulkShow}
+                      className="text-[11px] text-gray-600 hover:text-gray-900 transition-colors"
+                    >
+                      Show jobs
+                    </button>
+                    <span className="text-gray-200">|</span>
+                    <button
+                      onClick={handleBulkRemove}
+                      className="text-[11px] text-red-500 hover:text-red-700 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Search results */}
             {searchLoading && <p className="text-[11px] text-gray-400 px-1 mb-2">Searching…</p>}
@@ -584,15 +684,17 @@ export default function JobsPage() {
                 <WatchlistCard
                   key={entry.id}
                   entry={entry}
-                  onRemove={() => handleRemove(entry.company.id)}
                   removing={actionLoading === entry.company.id}
                   muted={mutedIds.has(entry.company.id)}
-                  onToggleMute={() => handleToggleMute(entry.company.id)}
                   jobCount={jobCountForCompany(entry.company.id)}
                   onDragStart={() => handleDragStart(index)}
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDrop={() => handleDrop(index)}
                   isDragOver={dragOverIndex === index}
+                  selectMode={selectMode}
+                  selected={selectedIds.has(entry.company.id)}
+                  onSelect={() => toggleSelectOne(entry.company.id)}
+                  onEnterSelectMode={() => enterSelectModeWith(entry.company.id)}
                 />
               ))}
             </div>
