@@ -28,6 +28,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jobwatch
       SPRING_DATASOURCE_USERNAME: jobwatch
       SPRING_DATASOURCE_PASSWORD: jobwatch
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
 
   notification-service:
     build: ./notification-service

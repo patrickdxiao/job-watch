@@ -32,12 +32,16 @@ public class WatchlistController {
     }
 
     @PostMapping
-    public ResponseEntity<WatchlistDTO> addToWatchlist(@RequestBody Map<String, Long> request) {
+    public ResponseEntity<?> addToWatchlist(@RequestBody Map<String, Long> request) {
         String email = getUsername();
         Long companyId = request.get("company_id");
-        return ResponseEntity.ok(
-                DtoMapper.toWatchlistDTO(watchlistService.addToWatchlist(email, companyId))
-        );
+        try {
+            return ResponseEntity.ok(
+                    DtoMapper.toWatchlistDTO(watchlistService.addToWatchlist(email, companyId))
+            );
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(409).body(Map.of("error", e.getMessage()));
+        }
     }
 
     @DeleteMapping("/{companyId}")
