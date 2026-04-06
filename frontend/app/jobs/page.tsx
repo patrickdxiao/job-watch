@@ -640,8 +640,8 @@ export default function JobsPage() {
         </div>
 
         {/* ── Right: Watchlist panel ──────────────────────────────────────── */}
-        <div className="w-60 shrink-0 sticky top-16" style={panelHeight ? { height: `${panelHeight}px` } : {}}>
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-3 flex flex-col h-full">
+        <div className="w-60 shrink-0 sticky top-16 flex flex-col overflow-hidden" style={panelHeight ? { height: `${panelHeight}px` } : {}}>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-3 flex flex-col min-h-0 flex-1">
             <div className="flex items-center justify-between mb-3 px-1">
               <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Watchlist</p>
             </div>
