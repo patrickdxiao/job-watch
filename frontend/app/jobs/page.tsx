@@ -617,8 +617,10 @@ export default function JobsPage() {
 
           {/* Job cards */}
           {!jobsLoading && !jobsError && filteredJobs.length > 0 && (
-            <div ref={jobsListRef} className="space-y-1.5">
-              {visibleJobs.map((job) => <JobCard key={job.id} job={job} />)}
+            <div className="space-y-1.5">
+              <div ref={jobsListRef} className="space-y-1.5">
+                {visibleJobs.map((job) => <JobCard key={job.id} job={job} />)}
+              </div>
               {filteredJobs.length > 10 && (
                 <button onClick={() => setShowAll(!showAll)} className="w-full text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 py-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                   {showAll ? "Show less" : `See ${filteredJobs.length - 10} more`}
