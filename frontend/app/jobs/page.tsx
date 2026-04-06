@@ -534,12 +534,13 @@ export default function JobsPage() {
   useEffect(() => {
     const el = jobsListRef.current;
     if (!el) return;
+    setPanelHeight(el.offsetHeight);
     const observer = new ResizeObserver(() => {
       setPanelHeight(el.offsetHeight);
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [visibleJobs]);
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
