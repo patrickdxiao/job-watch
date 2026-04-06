@@ -243,6 +243,15 @@ function DarkModeToggle() {
   );
 }
 
+function LoadingDots() {
+  const [dots, setDots] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setDots((d) => (d + 1) % 4), 500);
+    return () => clearInterval(interval);
+  }, []);
+  return <p className="text-center text-gray-400 dark:text-gray-500 text-xs py-16">Loading jobs{".".repeat(dots)}</p>;
+}
+
 export default function JobsPage() {
   const router = useRouter();
 
@@ -604,7 +613,7 @@ export default function JobsPage() {
         <div className="flex-1 min-w-0 max-w-2xl">
 
           {/* States */}
-          {jobsLoading && <p className="text-center text-gray-400 dark:text-gray-500 text-xs py-16">Loading jobs…</p>}
+          {jobsLoading && <LoadingDots />}
           {!jobsLoading && jobsError && (
             <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-xl px-5 py-4 text-xs text-red-700 dark:text-red-400">{jobsError}</div>
           )}
