@@ -13,7 +13,7 @@ def fetch_jobs(company_slug: str) -> list[dict]:
         {
             "id": f"greenhouse-{job['id']}",
             "title": job["title"],
-            "location": job.get("location", {}).get("name", "Unknown"),
+            "location": _resolve_location(job),
             "url": job["absolute_url"],
             "updated_at": job["updated_at"],
             "platform": "greenhouse",
@@ -21,3 +21,13 @@ def fetch_jobs(company_slug: str) -> list[dict]:
         }
         for job in jobs
     ]
+
+def _resolve_location(job: dict) -> str:
+    display = job.get("location", {}).get("name", "Unknown")
+    vague = {"hybrid", "remote", "unknown", ""}
+    if display.lower().strip() in vague:
+        for meta in job.get("metadata", []):
+            if meta.get("name") == "Job Posting Location" and meta.get("value"):
+                locations = meta["value"]
+                return "; ".join(locations)
+    return display

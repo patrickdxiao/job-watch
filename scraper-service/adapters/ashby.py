@@ -13,7 +13,7 @@ def fetch_jobs(company_slug: str) -> list[dict]:
         {
             "id": f"ashby-{job['id']}",
             "title": job["title"],
-            "location": job.get("location", "Unknown"),
+            "location": _resolve_location(job),
             "url": job["jobUrl"],
             "updated_at": job.get("publishedAt", "Unknown"),
             "platform": "ashby",
@@ -21,3 +21,26 @@ def fetch_jobs(company_slug: str) -> list[dict]:
         }
         for job in jobs
     ]
+
+def _resolve_location(job: dict) -> str:
+    workplace = job.get("workplaceType", "")
+    is_remote = job.get("isRemote")
+
+    address = job.get("address", {}).get("postalAddress", {})
+    city = address.get("addressLocality", "")
+    region = address.get("addressRegion", "")
+    country = address.get("addressCountry", "")
+
+    if is_remote or workplace == "Remote":
+        if country:
+            return f"Remote, {country}"
+        return "Remote"
+
+    parts = [p for p in [city, region, country] if p]
+    if parts:
+        location = ", ".join(parts)
+        if workplace == "Hybrid":
+            return f"{location} (Hybrid)"
+        return location
+
+    return job.get("location", "Unknown")
