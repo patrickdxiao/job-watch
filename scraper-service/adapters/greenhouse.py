@@ -28,6 +28,9 @@ def _resolve_location(job: dict) -> str:
     if display.lower().strip() in vague:
         for meta in job.get("metadata", []):
             if meta.get("name") == "Job Posting Location" and meta.get("value"):
-                locations = meta["value"]
+                locations = [_shorten(loc) for loc in meta["value"]]
                 return "; ".join(locations)
     return display
+
+def _shorten(location: str) -> str:
+    return location.replace(", United States", "").replace(", US", ", US").strip()

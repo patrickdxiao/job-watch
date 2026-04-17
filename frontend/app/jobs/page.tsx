@@ -126,8 +126,8 @@ function JobCard({ job }: { job: Job }) {
           <p className="text-[11px] text-gray-400 dark:text-gray-500">{timeAgo(job.updatedAt || job.createdAt)}</p>
           {job.location && (() => {
             const locs = job.location.split("; ");
-            const display = locs.length > 3
-              ? locs.slice(0, 2).join("; ") + `; +${locs.length - 2} more`
+            const display = locs.length > 1
+              ? locs[0] + `; +${locs.length - 1} more`
               : job.location;
             return <p className="text-[11px] text-gray-400 dark:text-gray-500">{display}</p>;
           })()}
